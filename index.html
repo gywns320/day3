@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>제주 날씨 맞춤 추천 에이전트</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css"
+          integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="anonymous">
     <style>
         body { font-family: sans-serif; max-width: 640px; margin: 0 auto; padding: 16px; line-height: 1.5; }
         h1 { font-size: 22px; }
@@ -16,6 +18,7 @@
         #answer { padding: 12px; border-radius: 8px; background: #ecfdf5; white-space: pre-wrap; display: none; }
         #spots { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
         #spots span { padding: 3px 10px; border-radius: 12px; background: #fff7ed; border: 1px solid #fed7aa; font-size: 13px; }
+        #map { height: 340px; margin-top: 12px; border-radius: 8px; }
         small { color: #777; }
     </style>
 </head>
@@ -32,6 +35,10 @@
     <ul id="steps"></ul>
     <div id="answer"></div>
     <div id="spots"></div>
+    <div id="map"></div>
+    <small>지도 위치는 지역 중심 근처에 흩어 표시한 것이며 정확한 좌표가 아닙니다.</small>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"
+            integrity="sha256-XJrs/DDkVkUZ29zdzFOkGCJ9zHVo5hnpdi3c7HYJ7Uc=" crossorigin="anonymous"></script>
     <script src="index.js"></script>
 </body>
 </html>
