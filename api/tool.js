@@ -23,9 +23,9 @@ const findSpotsTool = {
 
 // 도구 실행: 이름·지역·실내 여부·설명만 반환 (좌표 제외)
 function find_spots({ area, indoor } = {}) {
-  if (!AREAS.includes(area)) return { error: `area는 ${AREAS.join(', ')} 중 하나여야 합니다` };
+  if (typeof area !== 'string' || !AREAS.includes(area)) return { error: `area는 ${AREAS.join(', ')} 중 하나여야 합니다` };
   const spots = SPOTS
-    .filter(s => (s.area === area || s.area.startsWith(area + '(')) && (indoor === undefined || indoor === null || s.indoor === indoor))
+    .filter(s => (s.area === area || s.area.startsWith(area + '(')) && (typeof indoor !== 'boolean' || s.indoor === indoor))
     .slice(0, MAX)
     .map(s => ({ name: s.name, area: s.area, indoor: s.indoor, desc: s.type }));
   return { spots };

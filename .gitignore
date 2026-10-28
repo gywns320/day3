@@ -1,0 +1,5 @@
+.env
+.env.*
+.vercel/
+node_modules/
+매우중요한내용들.txt
