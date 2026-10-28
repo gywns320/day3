@@ -1,5 +1,5 @@
-// api/recommend.js — Claude 에이전트: find_spots + get_weather 를 스스로 골라 써서 추천
-// 열쇠는 Vercel 환경변수 ANTHROPIC_API_KEY 에서만 읽습니다. 열쇠가 없으면 '연습 모드'로 같은 도구를 직접 호출해 답합니다.
+// api/recommend.js — Gemini 에이전트: find_spots + get_weather 를 스스로 골라 써서 추천
+// 열쇠는 Vercel 환경변수 GEMINI_API_KEY 에서만 읽습니다. 열쇠가 없으면 '연습 모드'로 같은 도구를 직접 호출해 답합니다.
 const { tools, handlers, AREAS } = require('./tool');
 
 const SYSTEM = [
@@ -10,6 +10,9 @@ const SYSTEM = [
 ].join('\n');
 
 const MAX_TURNS = 5;
+
+// tool.js 의 도구 설명(name/description/input_schema)을 Gemini 형식(functionDeclarations)으로 바꿈
+const functionDeclarations = tools.map(t => ({ name: t.name, description: t.description, parameters: t.input_schema }));
 
 async function run(name, input) {
   const fn = handlers[name];
@@ -39,37 +42,44 @@ module.exports = async (req, res) => {
   const question = String((req.body && req.body.question) || '').slice(0, 300);
   if (!question.trim()) return res.status(400).json({ error: '질문이 비어 있어요' });
 
-  const key = process.env.ANTHROPIC_API_KEY;
+  const key = process.env.GEMINI_API_KEY;
   if (!key) return res.status(200).json(await practice(question));
 
-  const messages = [{ role: 'user', content: question }];
+  const model = process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite';
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
+  const contents = [{ role: 'user', parts: [{ text: question }] }];
   const steps = [];
   let spots = [];
   try {
     for (let turn = 0; turn < MAX_TURNS; turn++) {
-      const r = await fetch('https://api.anthropic.com/v1/messages', {
+      const r = await fetch(url, {
         method: 'POST',
-        headers: { 'x-api-key': key, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+        headers: { 'x-goog-api-key': key, 'content-type': 'application/json' },   // 열쇠는 헤더로만 보냄(주소에 넣지 않음)
         body: JSON.stringify({
-          model: process.env.CLAUDE_MODEL || 'claude-haiku-5-5',
-          max_tokens: 700, system: SYSTEM, tools, messages,
+          systemInstruction: { parts: [{ text: SYSTEM }] },
+          contents,
+          tools: [{ functionDeclarations }],
         }),
       });
       if (!r.ok) return res.status(200).json({ mode: 'error', answer: '잠시 후 다시 물어봐 주세요.', steps });   // 오류 내용·열쇠는 숨김
       const data = await r.json();
-      messages.push({ role: 'assistant', content: data.content });
-      if (data.stop_reason !== 'tool_use') {
-        const answer = data.content.filter(c => c.type === 'text').map(c => c.text).join('');
-        return res.status(200).json({ mode: 'claude', answer, steps, spots });
+      const content = data.candidates && data.candidates[0] && data.candidates[0].content;
+      if (!content || !content.parts) return res.status(200).json({ mode: 'error', answer: '답을 받지 못했어요. 다시 물어봐 주세요.', steps });
+      contents.push(content);   // 모델 응답을 그대로 이어 붙임(함수 호출 정보 유지)
+      const calls = content.parts.filter(p => p.functionCall);
+      if (!calls.length) {
+        const answer = content.parts.map(p => p.text || '').join('');
+        return res.status(200).json({ mode: 'gemini', answer, steps, spots });
       }
-      const results = [];
-      for (const b of data.content.filter(c => c.type === 'tool_use')) {
-        const out = await run(b.name, b.input);
-        if (b.name === 'find_spots' && out.spots) spots = out.spots;
-        steps.push({ tool: b.name, input: b.input, result: b.name === 'find_spots' ? { count: (out.spots || []).length } : out });
-        results.push({ type: 'tool_result', tool_use_id: b.id, content: JSON.stringify(out) });
+      const responses = [];
+      for (const p of calls) {
+        const { name, args } = p.functionCall;
+        const out = await run(name, args || {});
+        if (name === 'find_spots' && out.spots) spots = out.spots;
+        steps.push({ tool: name, input: args || {}, result: name === 'find_spots' ? { count: (out.spots || []).length } : out });
+        responses.push({ functionResponse: { name, response: out } });
       }
-      messages.push({ role: 'user', content: results });
+      contents.push({ role: 'user', parts: responses });
     }
     return res.status(200).json({ mode: 'error', answer: '답을 정리하지 못했어요. 다시 물어봐 주세요.', steps });
   } catch (e) {

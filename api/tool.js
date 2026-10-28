@@ -1,4 +1,4 @@
-// api/tool.js — Claude 도구 find_spots, get_weather (설명 + 실행 함수)
+// api/tool.js — 에이전트 도구 find_spots, get_weather (설명 + 실행 함수)
 const SPOTS = require('../jeju_spots.json').spots;   // 강사 배포 목록
 
 const AREAS = ['동쪽', '서쪽', '서귀포', '제주시'];
