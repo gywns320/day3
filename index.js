@@ -37,8 +37,8 @@ const ask = async () => {
         ;(d.steps || []).forEach(s => addStep(describe(s)))
         $("answer").textContent = d.answer || d.error || "답을 받지 못했어요."
         $("answer").style.display = "block"
-        ;showMap(d.spots || [])
-        (d.spots || []).forEach(s => {
+        showMap(d.spots || [])
+        ;(d.spots || []).forEach(s => {
             const sp = document.createElement("span")
             sp.textContent = `${s.name} · ${s.indoor ? "실내" : "야외"}`
             $("spots").append(sp)
