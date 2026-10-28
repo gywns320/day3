@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>제주 장소 지도</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css">
+    <style>
+        body { font-family: sans-serif; margin: 0; }
+        #bar { padding: 8px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+        #map { height: 70vh; }
+        #msg { padding: 0 8px 8px; color: #555; }
+    </style>
+</head>
+<body>
+    <div id="bar">
+        지역
+        <select id="area">
+            <option>동쪽</option><option>서쪽</option><option>서귀포</option><option>제주시</option>
+        </select>
+        실내
+        <select id="indoor">
+            <option value="">전체</option><option value="true">실내</option><option value="false">야외</option>
+        </select>
+        <button id="go">찾기</button>
+    </div>
+    <div id="msg"></div>
+    <div id="map"></div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+    <script>
+    // 장소별 좌표가 없어서 지역 중심 좌표 주변에 흩어 표시 (정확한 위치 아님)
+    const CENTER = {
+        "동쪽(성산)": [33.4581, 126.9425],
+        "동쪽(구좌)": [33.54, 126.83],
+        "제주시":     [33.51, 126.5219],
+        "서쪽(한림)": [33.4114, 126.2655],
+        "서쪽(안덕)": [33.26, 126.36],
+        "서귀포":     [33.253, 126.56],
+    }
+    const MAX = 8
+    let SPOTS = []
+
+    const map = L.map("map").setView([33.38, 126.55], 10)
+    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution: "&copy; OpenStreetMap contributors"
+    }).addTo(map)
+    const layer = L.layerGroup().addTo(map)
+
+    // find_spots (api/tool.js) 와 같은 규칙: 지역 + 실내 여부, 최대 8곳
+    const findSpots = (area, indoor) => SPOTS
+        .filter(s => (s.area === area || s.area.startsWith(area + "(")) &&
+                     (indoor === null || s.indoor === indoor))
+        .slice(0, MAX)
+
+    const show = () => {
+        const area = document.getElementById("area").value
+        const v = document.getElementById("indoor").value
+        const found = findSpots(area, v === "" ? null : v === "true")
+        layer.clearLayers()
+        const pts = []
+        found.forEach((s, i) => {
+            const c = CENTER[s.area]
+            const ang = i * 2.4, r = 0.012 * Math.sqrt(i + 1)
+            const p = [c[0] + r * Math.sin(ang), c[1] + r * Math.cos(ang)]
+            pts.push(p)
+            L.marker(p).addTo(layer)
+                .bindPopup(`<b>${s.name}</b><br>${s.area} · ${s.indoor ? "실내" : "야외"}<br>${s.type}`)
+        })
+        if (pts.length) map.fitBounds(pts, { padding: [40, 40], maxZoom: 12 })
+        document.getElementById("msg").textContent =
+            found.length + "곳 (위치는 지역 중심 근처에 흩어 표시한 것입니다)"
+    }
+
+    document.getElementById("go").onclick = show
+    fetch("jeju_spots.json").then(r => r.json()).then(d => { SPOTS = d.spots; show() })
+        .catch(() => document.getElementById("msg").textContent =
+            "jeju_spots.json을 불러오지 못했어요. 파일을 더블클릭하지 말고 웹 서버로 열어 주세요.")
+    </script>
+</body>
+</html>
